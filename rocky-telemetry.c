@@ -14,17 +14,17 @@ void gpio_callback(uint gpio, uint32_t events);
 volatile bool logging_state = false;
 int64_t timer_callback(alarm_id_t id, void *user_data) {
     // Check the logging state and re-enable the intterupt
-    if (logging_state != gpio_get(GPIO_WATCH_PIN)) {
-        logging_state = !logging_state;
+    if (!gpio_get(GPIO_WATCH_PIN)) { // Meaning, is the button still being pressed? (reading zero voltage)
+        logging_state = !logging_state; // Toggle the logging state
         printf("Logging state changed: %s\n", logging_state ? "ON" : "OFF");
     }
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_callback); // Re-enable the interrupt
     return 0; // Return 0 to indicate that the alarm should not be repeated
 }
 
 void gpio_callback( uint gpio, uint32_t events) {
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, false, NULL);
-    add_alarm_in_ms(50, &timer_callback, NULL, true); // 200ms debounce time
+    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, false, NULL); // First, disable the interrupt
+    add_alarm_in_ms(50, &timer_callback, NULL, true); // Start a timer. 
 }
 int pico_led_init() {
     gpio_init(PICO_DEFAULT_LED_PIN);
@@ -33,6 +33,7 @@ int pico_led_init() {
 }
 int main()
 {
+    // Initiialisation of the GPIO pin and the LED pin.
     stdio_init_all();
     gpio_init(GPIO_WATCH_PIN);
     gpio_set_dir(GPIO_WATCH_PIN, GPIO_IN);
@@ -41,8 +42,14 @@ int main()
     int rc = pico_led_init(); 
     hard_assert (rc == PICO_OK);
     while (true) {
-        gpio_put(PICO_DEFAULT_LED_PIN, logging_state);
-        printf("Logging state: %s\n", logging_state ? "ON" : "OFF");
+        if (logging_state) {
+            // Do logging stuff here
+            gpio_put(PICO_DEFAULT_LED_PIN, 1); // Turn on the LED when logging is active
+            printf("Logging is active...\n");
+        } else {
+            gpio_put(PICO_DEFAULT_LED_PIN, 0); // Turn off the LED when logging is not active
+            printf("Logging is not active.\n");
+        }
         __wfe(); 
     }
 }
