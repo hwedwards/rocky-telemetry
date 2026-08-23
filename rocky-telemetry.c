@@ -1,6 +1,7 @@
 #include "pico/stdlib.h"
 #include "hardware/irq.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #include <stdio.h> // for printfs
 
 
@@ -18,7 +19,7 @@ int64_t timer_callback(alarm_id_t id, void *user_data) {
         logging_state = !logging_state; // Toggle the logging state
         printf("Logging state changed: %s\n", logging_state ? "ON" : "OFF");
     }
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, &gpio_callback); // Re-enable the interrupt
+    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback); // Re-enable the interrupt
     return 0; // Return 0 to indicate that the alarm should not be repeated
 }
 
@@ -50,6 +51,7 @@ int main()
             gpio_put(PICO_DEFAULT_LED_PIN, 0); // Turn off the LED when logging is not active
             printf("Logging is not active.\n");
         }
+        // Note to self: Should probably include a watchdog timer. 
         __wfe(); 
     }
 }
