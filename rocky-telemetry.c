@@ -24,14 +24,7 @@ int64_t timer_callback(alarm_id_t id, void *user_data) {
 
 void gpio_callback( uint gpio, uint32_t events) {
     gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, false, NULL);
-    // Toggle the logging state on button press
-    // In order to debouce the button, I should disable the interrupt, 
-    // Start a timer, and if the button is still being pressed, 
-    // change the state and re-enable the interrupt.
-    // The problem is, that I should not being called such a function from within the interrupt. 
     add_alarm_in_ms(50, &timer_callback, NULL, true); // 200ms debounce time
-    // global variables can be corrupted by interrupts (non rentrant functions)
-    // printf("Logging state changed: %s\n", logging_state ? "ON" : "OFF");
 }
 int pico_led_init() {
     gpio_init(PICO_DEFAULT_LED_PIN);
@@ -40,8 +33,6 @@ int pico_led_init() {
 }
 int main()
 {
-    // I want to figure out how to do this in a way that is not pinning the cpu at 100%. 
-    // Actually I want to be dormant until the interrupt is triggered. 
     stdio_init_all();
     gpio_init(GPIO_WATCH_PIN);
     gpio_set_dir(GPIO_WATCH_PIN, GPIO_IN);
@@ -49,11 +40,9 @@ int main()
     gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback);
     int rc = pico_led_init(); 
     hard_assert (rc == PICO_OK);
-    // I want some logic here that will put the cpu to sleep until the interrupt 
-    // is fired and the state changes to logging= true as opposed to polling constantly. 
     while (true) {
         gpio_put(PICO_DEFAULT_LED_PIN, logging_state);
         printf("Logging state: %s\n", logging_state ? "ON" : "OFF");
-        sleep_ms(1000); // Sleep for one second to slow down the cpu. 
+        __wfe(); 
     }
 }
