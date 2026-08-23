@@ -43,6 +43,8 @@ int main()
     int rc = pico_led_init(); 
     hard_assert (rc == PICO_OK);
     while (true) {
+        // I need to instart some sort of state machine here. I can add mutexes on the state so only one thing can change it at a time. 
+        // Should probably include some sort of mutex on the logging_state variable, but for now, let's keep it simple.
         if (logging_state) {
             // Do logging stuff here
             gpio_put(PICO_DEFAULT_LED_PIN, 1); // Turn on the LED when logging is active
