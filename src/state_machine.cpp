@@ -13,6 +13,7 @@ void StateMachine::handle_event(const Event &event){
             if (event == Event::BUTTON_PRESSED){
                 current_state = State::LOGGING;
                 printf("Transitioning to LOGGING state\n");
+                // Will need to instantiate the logging class - which will start reading from the MPU into a DMA buffer, and then writing to the SD card.
                 gpio_put(PICO_DEFAULT_LED_PIN, 1); // Turn on the LED when logging starts
             }
             break;
