@@ -1,27 +1,25 @@
-enum struct states {
-    off, 
-    logging, 
-}; 
-class StateMachine 
+#pragma once
+
+#include "event.hpp"
+#include <cstdint>
+
+enum class State : uint8_t {
+    OFF,
+    LOGGING,
+};
+
+class StateMachine
 {
-    Public:
-        // Constructor
-        StateMachine() : current_state(states::off) {}
-        // Check the current state
-        states get_current_state() const {
-            return current_state;
-        }
-        // Transition to the next state based on the current state
-        void transition() {
-            switch (current_state) {
-                case states::off:
-                    current_state = states::logging;
-                    break;
-                case states::logging:
-                    current_state = states::off;
-                    break;
-            }
-        }
-    Private:
-        states current_state;    
-}; 
+    public:
+        StateMachine() : current_state(State::OFF) {}
+
+        // Runs in main context, never from an ISR, so it is free to block.
+        // Returns an event to re-inject (for transitions that cascade), or
+        // Event::NONE when the machine has settled.
+        Event dispatch(Event e);
+
+        State get_current_state() const { return current_state; }
+
+    private:
+        State current_state;
+};

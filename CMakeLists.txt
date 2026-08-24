@@ -35,7 +35,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(rocky-telemetry rocky-telemetry.c )
+add_executable(rocky-telemetry
+        src/rocky-telemetry.cpp
+        src/state_machine.cpp
+        src/button.cpp)
 
 pico_set_program_name(rocky-telemetry "rocky-telemetry")
 pico_set_program_version(rocky-telemetry "0.1")
@@ -47,11 +50,13 @@ pico_enable_stdio_usb(rocky-telemetry 1)
 # Add the standard library to the build
 target_link_libraries(rocky-telemetry
         pico_stdlib
-        hardware_dma)
+        hardware_dma
+        pico_util)
 
 # Add the standard include files to the build
 target_include_directories(rocky-telemetry PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/include
 )
 
 pico_add_extra_outputs(rocky-telemetry)
