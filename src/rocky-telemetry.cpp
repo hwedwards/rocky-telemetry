@@ -1,35 +1,42 @@
 #include "pico/stdlib.h"
+#include "pico/binary_info.h"
 #include "hardware/irq.h"
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "button.hpp"
 #include "state_machine.hpp"
+#include "imu.hpp"
 #include "event.hpp"
 #include <stdio.h> // for printfs
 #include "pico/util/queue.h"
 
-//Maybe setup a seperate button as an object that triggers the state machine. 
-// I take in the state machine as a parameter, and then it can call handle_state_transition. 
-// I think I may be substantially overcomplicating this. 
-
-
-
 #define GPIO_WATCH_PIN 2
+#define IMU_SDA_PIN 0
+#define IMU_SCL_PIN 1
+
 void gpio_callback(uint gpio, uint32_t events);
 
-volatile bool logging_state = false;
 queue_t event_queue; // Create a queue to hold events
-StateMachine state_machine; 
+
+// Declaration order matters: globals in one translation unit are constructed
+// top to bottom, so imu exists before state_machine binds its reference.
+// Neither constructor touches hardware -- that happens in main().
+IMU imu(i2c_default, IMU_SDA_PIN, IMU_SCL_PIN);
+StateMachine state_machine(imu);
+
+// Make the I2C pins available to picotool
+bi_decl(bi_2pins_with_func(IMU_SDA_PIN, IMU_SCL_PIN, GPIO_FUNC_I2C));
+
+// The goal now is to start reading the MPU into a DMA buffer, and then writing to the SD card.
 
 int64_t timer_callback(alarm_id_t id, void *user_data) {
     // Check the logging state and re-enable the intterupt
     if (!gpio_get(GPIO_WATCH_PIN)) { // Meaning, is the button still being pressed? (reading zero voltage)
-        // Todo: Add the event to the queue and handle it in the main loop.
         Event event = Event::BUTTON_PRESSED;
         queue_try_add(&event_queue, &event); // Add the event to the queue
     }
     gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback); // Re-enable the interrupt
-    
+
     return 0; // Return 0 to indicate that the alarm should not be repeated
 }
 
@@ -46,23 +53,38 @@ int main()
 {
     // Initiialisation of the GPIO pin and the LED pin.
     // All this will be encapsulated into a button class later, but for now, we will just do it here.
-    stdio_init_all();// Create an instance of the state machine
+    stdio_init_all();
+    sleep_ms(2000);   // let the USB CDC port enumerate before the first print
+
     queue_init(&event_queue, sizeof(Event), 10); // Initialize the queue to hold up to 10 events
+
+    int rc = pico_led_init();
+    hard_assert (rc == PICO_OK);
+
+    // Bring the IMU up before the button interrupt, so a press can never land
+    // on a half-configured device. Calibration blocks for about a second.
+    if (imu.init()) {
+        imu.calibrate(500);
+    } else {
+        printf("Continuing without a working IMU\n");
+    }
+
     gpio_init(GPIO_WATCH_PIN);
     gpio_set_dir(GPIO_WATCH_PIN, GPIO_IN);
     gpio_pull_up(GPIO_WATCH_PIN); // The button will be active low, so we need to pull up the voltage. 
     gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback);
-    int rc = pico_led_init(); 
-    hard_assert (rc == PICO_OK);
 
     while (true) {
         // Check the queue for events if they are present, otherwise do nothing. 
-        while (!queue_is_empty(&event_queue)) {
-            Event event;
-            if (queue_try_remove(&event_queue, &event)) {
-                state_machine.handle_event(event); // Handle the event using the state machine
-            }
+        Event event;
+        while (queue_try_remove(&event_queue, &event)) {
+            state_machine.handle_event(event); // Handle the event using the state machine
         }
-        __wfe(); 
+
+        if (state_machine.get_current_state() == State::LOGGING) {
+            state_machine.poll();   // sample the IMU; returns immediately if not due
+        } else {
+            __wfe();                // nothing to do until the button fires
+        }
     }
 }
