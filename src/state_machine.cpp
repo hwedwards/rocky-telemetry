@@ -5,61 +5,59 @@
 
 void StateMachine::enter_logging()
 {
+    if (!logger.start()) {
+        printf("Refusing to enter LOGGING - acquisition would not start\n");
+        return;             // stay in OFF; the LED never lies about the state
+    }
     current_state = State::LOGGING;
-    sample_count = 0;
-    next_sample = get_absolute_time();      // first sample on the next poll()
     gpio_put(PICO_DEFAULT_LED_PIN, 1);
     printf("Transitioning to LOGGING state\n");
 }
 
 void StateMachine::enter_off()
 {
+    logger.stop();
     current_state = State::OFF;
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
-    printf("Transitioning to OFF state (%lu samples)\n",
-           (unsigned long)sample_count);
+    printf("Transitioning to OFF state\n");
 }
 
 void StateMachine::handle_event(Event event)
 {
+    // Posted by core 1, so it can arrive in either state -- a write that was
+    // still in flight when we stopped reports after the move to OFF.
+    if (event == Event::WRITE_ERROR) {
+        logger.on_write_error();
+        return;
+    }
+
     switch (current_state) {
         case State::OFF:
+            // DRAIN_FIFO and FIFO_OVERFLOW are deliberately unhandled here.
+            // A timer tick that was already in the queue when we stopped gets
+            // dropped on the floor, which is exactly what we want.
             if (event == Event::BUTTON_PRESSED) {
                 enter_logging();
             }
             break;
 
         case State::LOGGING:
-            if (event == Event::BUTTON_PRESSED) {
-                enter_off();
+            switch (event) {
+                case Event::BUTTON_PRESSED:
+                    enter_off();
+                    break;
+
+                case Event::DRAIN_FIFO:
+                    logger.drain();
+                    break;
+
+                case Event::FIFO_OVERFLOW:
+                    logger.on_overflow();
+                    break;
+
+                default:
+                    break;
             }
             break;
-    }
-}
-
-void StateMachine::poll()
-{
-    if (current_state != State::LOGGING) return;
-
-    // Positive means next_sample is still in the future, so there is nothing
-    // to do yet. Comparing absolute times this way is wrap-safe.
-    if (absolute_time_diff_us(get_absolute_time(), next_sample) > 0) return;
-    next_sample = delayed_by_us(next_sample, SAMPLE_INTERVAL_US);
-
-    IMU::Sample s;
-    if (!imu.read(s)) {
-        printf("IMU read failed\n");
-        return;
-    }
-
-    sample_count++;
-
-    // Placeholder sink. This is where the DMA buffer / SD card write goes;
-    // printing every sample at 100 Hz would swamp the USB CDC port.
-    if (sample_count % PRINT_EVERY == 0) {
-        printf("Acc %.3f %.3f %.3f g | Gyr %.2f %.2f %.2f d/s | %.1f C\n",
-               IMU::to_g(s.accel[0]), IMU::to_g(s.accel[1]), IMU::to_g(s.accel[2]),
-               IMU::to_dps(s.gyro[0]), IMU::to_dps(s.gyro[1]), IMU::to_dps(s.gyro[2]),
-               IMU::to_celsius(s.temp));
     }
 }

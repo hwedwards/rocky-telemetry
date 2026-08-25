@@ -51,6 +51,38 @@ class IMU
         // Returns false on a bus error, leaving out untouched.
         bool read(Sample &out);
 
+        // ---- FIFO ----------------------------------------------------------
+        // The on-chip FIFO collects samples at the full output data rate while
+        // the CPU is busy elsewhere. This is what stops a slow storage write
+        // costing us samples: 1024 bytes is ~85 ms of headroom at 1 kHz.
+
+        // One FIFO record: accel(6) + gyro(6), same order as the measurement
+        // registers. Temperature is deliberately left out of FIFO_EN -- we do
+        // not use it, and dropping it takes the record from 14 to 12 bytes,
+        // which buys back both I2C bus time and FIFO depth.
+        static constexpr size_t FIFO_SAMPLE_LEN = 12;
+        static constexpr size_t FIFO_CAPACITY   = 1024;
+
+        // Enable/disable FIFO collection. Enabling also clears whatever was
+        // in there, so the first record out is the first record after start.
+        bool fifo_enable(bool on);
+        bool fifo_reset();
+
+        // Bytes currently waiting. Not necessarily a whole number of records --
+        // the count can be read mid-write, so round down before draining.
+        bool fifo_count(uint16_t &out);
+
+        // Bulk read straight out of FIFO_R_W into a caller-supplied buffer.
+        // The bytes are stored raw (big-endian pairs); decode() converts one.
+        bool fifo_read(uint8_t *dst, size_t len);
+
+        // True if the FIFO wrapped since the last check. Reading the status
+        // register clears the flag, so treat a true here as one fault event.
+        bool fifo_overflowed(bool &out);
+
+        // Turn one raw 14-byte FIFO record into a Sample, gyro bias removed.
+        Sample decode(const uint8_t *raw) const;
+
         // Scale factors for the configured full-scale ranges (+/-2g, +/-250 deg/s)
         static constexpr float ACCEL_LSB_PER_G  = 16384.0f;
         static constexpr float GYRO_LSB_PER_DPS = 131.0f;
@@ -65,6 +97,7 @@ class IMU
         bool check();
         void reset();
         bool read_raw(Sample &out);     // read() without the bias subtraction
+        bool read_reg(uint8_t reg, uint8_t &val);
 
         i2c_inst_t *bus;
         uint sda_pin;
