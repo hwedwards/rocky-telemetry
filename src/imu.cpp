@@ -1,11 +1,3 @@
-/**
- * MPU6050 driver, derived from the Raspberry Pi Pico SDK i2c example.
- *
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include "imu.hpp"
 #include "pico/stdlib.h"
 #include <stdio.h>
@@ -29,11 +21,9 @@
 
 #define SENSOR_BLOCK_LEN  14    // accel(6) + temp(2) + gyro(6), contiguous
 
-// FIFO_EN bits: all three gyro axes + accel. Bit 7 (TEMP_FIFO_EN) is left
-// clear -- we never use the die temperature, and omitting it makes the
-// record 12 bytes instead of 14. The layout is otherwise the measurement
-// register order with the temperature pair cut out of the middle.
-#define FIFO_EN_ALL       0x78
+// FIFO_EN bits: temp + all three gyro axes + accel. Produces exactly the same
+// 14-byte layout as a burst read of the measurement registers.
+#define FIFO_EN_ALL       0xF8
 
 #define USER_CTRL_FIFO_EN     (1u << 6)
 #define USER_CTRL_FIFO_RESET  (1u << 2)
@@ -285,11 +275,9 @@ IMU::Sample IMU::decode(const uint8_t *raw) const
     for (int i = 0; i < 3; i++) {
         s.accel[i] = (int16_t)((raw[i * 2] << 8) | raw[i * 2 + 1]);
     }
-    // Not in the FIFO stream -- see FIFO_EN_ALL. read() still fills this in,
-    // because the measurement registers always carry it.
-    s.temp = 0;
+    s.temp = (int16_t)((raw[6] << 8) | raw[7]);
     for (int i = 0; i < 3; i++) {
-        s.gyro[i] = (int16_t)((raw[6 + i * 2] << 8) | raw[7 + i * 2]) - gyro_bias[i];
+        s.gyro[i] = (int16_t)((raw[8 + i * 2] << 8) | raw[9 + i * 2]) - gyro_bias[i];
     }
     return s;
 }

@@ -61,7 +61,7 @@ class Logger
 
         // One handoff between the cores. data == nullptr is the sync sentinel:
         // it asks the writer to flush filesystem metadata, and unlike a real
-        // block it does not come back through free_q.
+        // block it does not come back through free_q. Block is the ticket for each buffer. 
         struct Block {
             uint8_t *data;
             size_t   len;
@@ -132,5 +132,5 @@ class Logger
         queue_t free_q{};
         uint8_t buffers[BUFFER_COUNT][BUFFER_LEN];
 
-        static Logger *writer_self;     // core 1 has no user-data argument
+        inline static Logger *writer_self = nullptr;     // core 1 has no user-data argument
 };

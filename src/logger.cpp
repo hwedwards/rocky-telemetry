@@ -4,8 +4,6 @@
 #include "pico/multicore.h"
 #include <stdio.h>
 
-Logger *Logger::writer_self = nullptr;
-
 // Interrupt context, core 0. The one thing that is safe here is posting to the
 // queue -- no I2C, no printf, no storage. queue_try_add ends in an __sev(),
 // which is what wakes the main loop out of its blocking remove.
@@ -21,6 +19,7 @@ bool Logger::drain_timer_cb(repeating_timer_t *rt)
 
 void Logger::writer_entry()
 {
+    
     writer_self->writer_loop();
 }
 
@@ -67,15 +66,25 @@ bool Logger::begin()
 
     // full_q gets one extra slot so the sync sentinel in stop() always has
     // somewhere to go, even when every buffer is already queued.
-    queue_init(&full_q, sizeof(Block), BUFFER_COUNT + 1);
-    queue_init(&free_q, sizeof(Block), BUFFER_COUNT);
+    // queue_init calloc()s its backing store, so it can genuinely fail on a
+    // starved heap, and nothing downstream checks: a null data pointer would
+    // turn the first handoff into a memcpy to address 0.
 
+    // So the full queue can take 5 buffer tokens called blocks. It's so that the memory 
+    // doesn't physically have to be moved around 
+    if (!queue_init(&full_q, sizeof(Block), BUFFER_COUNT + 1) ||
+        !queue_init(&free_q, sizeof(Block), BUFFER_COUNT)) {
+        printf("Logger: could not allocate the handoff queues\n");
+        return false;
+    }
+    // So we're assigning the first address of each allocated buffer to the block object. Each has length 0 initially. 
     for (size_t i = 0; i < BUFFER_COUNT; i++) {
         Block b{buffers[i], 0};
         queue_add_blocking(&free_q, &b);
     }
-
+    // writer self is for keeping track, accross the Logger class, who is core 0 . 
     writer_self = this;
+    // Launches core 1 and passes it a function pointer. 
     multicore_launch_core1(&writer_entry);
     writer_started = true;
 
