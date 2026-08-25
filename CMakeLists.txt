@@ -41,7 +41,10 @@ add_executable(rocky-telemetry
         src/button.cpp
         src/imu.cpp
         src/logger.cpp
-        src/storage.cpp)
+        src/storage.cpp
+        src/sd_card.cpp
+        src/fat32.cpp
+        src/sd_storage.cpp)
 
 pico_set_program_name(rocky-telemetry "rocky-telemetry")
 pico_set_program_version(rocky-telemetry "0.1")
@@ -56,6 +59,7 @@ target_link_libraries(rocky-telemetry
         pico_multicore
         hardware_dma
         hardware_i2c
+        hardware_spi
         pico_util)
 
 # Add the standard include files to the build

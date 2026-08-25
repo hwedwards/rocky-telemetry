@@ -7,6 +7,7 @@
 #include "state_machine.hpp"
 #include "logger.hpp"
 #include "storage.hpp"
+#include "sd_storage.hpp"
 #include "imu.hpp"
 #include "event.hpp"
 #include <stdio.h> // for printfs
@@ -16,6 +17,15 @@
 #define IMU_SDA_PIN 0
 #define IMU_SCL_PIN 1
 
+// Micro SD module on SPI1. GP12/14/15 are the SPI1 RX/SCK/TX pins; CS is a
+// plain GPIO rather than the block's CSn, because hardware chip select
+// deasserts between bytes and an SD command has to hold it low for the whole
+// frame. See sd_card.cpp.
+#define SD_MISO_PIN 12
+#define SD_CS_PIN   13
+#define SD_SCK_PIN  14
+#define SD_MOSI_PIN 15
+
 void gpio_callback(uint gpio, uint32_t events);
 
 queue_t event_queue; // Everything reaches the state machine through here
@@ -24,12 +34,14 @@ queue_t event_queue; // Everything reaches the state machine through here
 // top to bottom, so each of these exists before the next one binds a reference
 // to it. None of the constructors touch hardware -- that happens in main().
 IMU imu(i2c_default, IMU_SDA_PIN, IMU_SCL_PIN);
-NullStorage storage;                            // swap for the SD backend later
+SdStorage storage(spi1, SD_MISO_PIN, SD_MOSI_PIN, SD_SCK_PIN, SD_CS_PIN);
 Logger logger(imu, storage, event_queue);
 StateMachine state_machine(logger);
 
-// Make the I2C pins available to picotool
+// Make the bus pins available to picotool
 bi_decl(bi_2pins_with_func(IMU_SDA_PIN, IMU_SCL_PIN, GPIO_FUNC_I2C));
+bi_decl(bi_3pins_with_func(SD_MISO_PIN, SD_MOSI_PIN, SD_SCK_PIN, GPIO_FUNC_SPI));
+bi_decl(bi_1pin_with_name(SD_CS_PIN, "SD card chip select"));
 
 int64_t timer_callback(alarm_id_t id, void *user_data) {
     // Check the logging state and re-enable the intterupt
@@ -70,22 +82,23 @@ int main()
         printf("Continuing without a working IMU\n");
     }
 
-    if (!storage.mount() || !storage.open("log.bin")) {
-        printf("Storage unavailable - logging will discard data\n");
+    if (!storage.mount()) {
+        printf("SD card unavailable - logging will discard data\n");
     }
 
-    // DEBUG: make the null backend behave like an SD card, so the two-core
-    // handoff is actually exercised rather than trivially satisfied.
-    // 3 ms per ordinary write, and a 250 ms garbage-collection stall every
-    // 8th write (~every 4 s at one buffer per 512 ms).
+    // DEBUG: a destructive round-trip against one block, to separate an
+    // electrical fault from a filesystem one. If this fails then nothing
+    // above it can work and the FAT32 messages are not worth reading.
+    // Point it at a block you do not mind losing -- 0 is the MBR, so what
+    // you write there costs you a reformat.
     //
-    // The pool holds BUFFER_COUNT * 512 ms = ~2 s, so a 250 ms stall should
-    // be absorbed with buffers_dropped still 0. To prove the failure path is
-    // real and not silent, raise stall_ms past 2000 -- you should then see
-    // dropped buffers and, if it persists, a FIFO overflow. Delete this whole
-    // block once the SD backend lands.
-    storage.set_delays({3, 250, 8});
-    storage.set_dump(4, &imu);      // decode one record every 4th buffer
+    // storage.raw_card().self_test(0);
+
+    // Opening is hundreds of milliseconds on an SD card, which is exactly
+    // why it belongs at boot rather than in Logger::start().
+    if (!storage.open("log.bin")) {
+        printf("Could not open log.bin - logging will discard data\n");
+    }
 
 
     // Hands Storage over to core 1 and starts the writer. Nothing on core 0

@@ -42,6 +42,7 @@ void Logger::writer_loop()
                 Event e = Event::WRITE_ERROR;
                 queue_try_add(&events, &e);
             }
+            syncs_done++;               // release stop(), which is waiting on this
             continue;                   // the sentinel owns no buffer to return
         }
 
@@ -149,14 +150,20 @@ void Logger::stop()
         fill = 0;
     }
 
+    // Read the counter before queueing, so a sync that finishes between the
+    // two lines still satisfies the wait rather than hanging it for a timeout.
+    const uint32_t sync_target = syncs_done + 1;
+
     Block sync_cmd{nullptr, 0};
     queue_add_blocking(&full_q, &sync_cmd);
 
     // A buffer only reaches free_q after its write has completed, so all of
-    // them being home means the card has everything we handed over. The
-    // sentinel was queued behind the last block, so the sync is done too.
+    // them being home means the card has every byte we handed over. The
+    // sentinel is queued behind the last block and returns no buffer, so it
+    // needs waiting on separately -- otherwise report() below can read
+    // Storage while core 1 is still rewriting the FAT.
     absolute_time_t deadline = make_timeout_time_ms(STOP_TIMEOUT_MS);
-    while (queue_get_level(&free_q) < BUFFER_COUNT) {
+    while (queue_get_level(&free_q) < BUFFER_COUNT || syncs_done != sync_target) {
         if (time_reached(deadline)) {
             printf("Logger: writer still busy after %u ms - giving up on the "
                    "final flush\n", (unsigned)STOP_TIMEOUT_MS);

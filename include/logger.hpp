@@ -127,6 +127,14 @@ class Logger
         // caching it across the report() call.
         volatile uint32_t write_errors = 0;
 
+        // Bumped once the sync sentinel has been handled. stop() waits on this
+        // as well as on free_q, because the sentinel is queued behind the last
+        // buffer: every buffer can be home while the sync is still in flight.
+        // With a backend whose sync() was free that never showed, but a real
+        // one rewrites the FAT and the directory entry, which is milliseconds
+        // during which core 0 must not read Storage.
+        volatile uint32_t syncs_done = 0;
+
         // ---- shared --------------------------------------------------------
         queue_t full_q{};
         queue_t free_q{};
