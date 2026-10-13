@@ -70,3 +70,7 @@ target_include_directories(rocky-telemetry PRIVATE
 
 pico_add_extra_outputs(rocky-telemetry)
 
+# Hardware-independent FIFO format assertions, evaluated by the cross compiler.
+add_library(imu_fifo_regression OBJECT tests/imu_fifo_test.cpp)
+target_include_directories(imu_fifo_regression PRIVATE ${CMAKE_CURRENT_LIST_DIR}/include)
+
