@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hardware/i2c.h"
+#include "imu_fifo.hpp"
 #include <cstdint>
 #include <cstddef>
 
@@ -29,7 +30,7 @@ class IMU
         struct Sample {
             int16_t accel[3];   // X, Y, Z
             int16_t gyro[3];    // X, Y, Z, with the calibrated bias removed
-            int16_t temp;       // die temperature, not ambient
+            int16_t temp;       // die temperature from read(); absent/zero in decode()
         };
 
         // Touches no hardware -- safe to construct as a global before main().
@@ -60,7 +61,7 @@ class IMU
         // registers. Temperature is deliberately left out of FIFO_EN -- we do
         // not use it, and dropping it takes the record from 14 to 12 bytes,
         // which buys back both I2C bus time and FIFO depth.
-        static constexpr size_t FIFO_SAMPLE_LEN = 12;
+        static constexpr size_t FIFO_SAMPLE_LEN = imu_fifo::RECORD_LEN;
         static constexpr size_t FIFO_CAPACITY   = 1024;
 
         // Enable/disable FIFO collection. Enabling also clears whatever was
@@ -80,7 +81,8 @@ class IMU
         // register clears the flag, so treat a true here as one fault event.
         bool fifo_overflowed(bool &out);
 
-        // Turn one raw 14-byte FIFO record into a Sample, gyro bias removed.
+        // Turn one raw 12-byte FIFO record into a Sample, gyro bias removed.
+        // Caller must provide FIFO_SAMPLE_LEN bytes. temp is zero (not measured).
         Sample decode(const uint8_t *raw) const;
 
         // Scale factors for the configured full-scale ranges (+/-2g, +/-250 deg/s)

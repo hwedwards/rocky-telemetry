@@ -43,6 +43,8 @@ class Logger
         // becomes a read-modify-write through its single-sector window.
         static constexpr size_t BUFFER_SAMPLES = 512;
         static constexpr size_t BUFFER_LEN = BUFFER_SAMPLES * IMU::FIFO_SAMPLE_LEN;
+        static_assert(IMU::FIFO_SAMPLE_LEN == 12,
+                      "logger expects six 16-bit axes without temperature");
 
         // Four of them: 24 KB out of the 520 KB on the chip, and ~2 s of
         // writer stall absorbed before core 0 runs out of somewhere to put

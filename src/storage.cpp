@@ -38,6 +38,7 @@ bool NullStorage::write(const uint8_t *data, size_t len)
     // printf on core 1 is fine here and nowhere else: stdio is mutex-guarded
     // (PICO_STDOUT_MUTEX defaults on) so it cannot corrupt core 0's output,
     // and the only cost is more delay on a core that is allowed to be slow.
+    // decode() consumes exactly one 12-byte accel/gyro record, without temperature.
     if (dump_n && dump_imu && len >= IMU::FIFO_SAMPLE_LEN &&
         (writes % dump_n) == 0) {
         IMU::Sample s = dump_imu->decode(data);

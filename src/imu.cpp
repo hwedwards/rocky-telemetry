@@ -21,9 +21,8 @@
 
 #define SENSOR_BLOCK_LEN  14    // accel(6) + temp(2) + gyro(6), contiguous
 
-// FIFO_EN bits: temp + all three gyro axes + accel. Produces exactly the same
-// 14-byte layout as a burst read of the measurement registers.
-#define FIFO_EN_ALL       0xF8
+// FIFO_EN bits 6:3: all three gyro axes + accel; bit 7 (temperature) is clear.
+// The FIFO is 12 bytes, unlike the 14-byte direct measurement-register read.
 
 #define USER_CTRL_FIFO_EN     (1u << 6)
 #define USER_CTRL_FIFO_RESET  (1u << 2)
@@ -236,7 +235,7 @@ bool IMU::fifo_enable(bool on)
     }
 
     // Order matters: pick the sources, clear whatever is stale, then start.
-    if (!write_reg(REG_FIFO_EN, FIFO_EN_ALL)) return false;
+    if (!write_reg(REG_FIFO_EN, imu_fifo::ENABLE_MASK)) return false;
     if (!write_reg(REG_USER_CTRL, USER_CTRL_FIFO_RESET)) return false;
     if (!write_reg(REG_USER_CTRL, USER_CTRL_FIFO_EN)) return false;
 
@@ -271,13 +270,11 @@ bool IMU::fifo_overflowed(bool &out)
 
 IMU::Sample IMU::decode(const uint8_t *raw) const
 {
-    Sample s;
+    const auto record = imu_fifo::decode(raw);
+    Sample s{}; // Temperature is not present in FIFO records.
     for (int i = 0; i < 3; i++) {
-        s.accel[i] = (int16_t)((raw[i * 2] << 8) | raw[i * 2 + 1]);
-    }
-    s.temp = (int16_t)((raw[6] << 8) | raw[7]);
-    for (int i = 0; i < 3; i++) {
-        s.gyro[i] = (int16_t)((raw[8 + i * 2] << 8) | raw[9 + i * 2]) - gyro_bias[i];
+        s.accel[i] = record.accel[i];
+        s.gyro[i] = record.gyro[i] - gyro_bias[i];
     }
     return s;
 }
