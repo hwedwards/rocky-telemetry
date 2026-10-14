@@ -2,6 +2,7 @@
 
 #include "hardware/i2c.h"
 #include "imu_fifo.hpp"
+#include "inputs.hpp"
 #include <cstdint>
 #include <cstddef>
 
@@ -21,7 +22,7 @@
    3.3v (pin 36) -> VCC on MPU6050 board
    GND (pin 38)  -> GND on MPU6050 board
 */
-class IMU
+class IMU : public Inputs
 {
     public:
         // One sampling instant. Every field comes from the same burst read, so
@@ -51,6 +52,20 @@ class IMU
         // One transaction covering all 14 measurement registers.
         // Returns false on a bus error, leaving out untouched.
         bool read(Sample &out);
+
+        SampleFormat format() const override { return {SampleKind::AccelGyroBe16, FIFO_SAMPLE_LEN}; }
+        bool start() override { return fifo_enable(true); }
+        // Stop producers without disabling FIFO_R_W access for the final drain.
+        bool stop() override;
+        bool available(size_t &bytes) override {
+            uint16_t count = 0;
+            if (!fifo_count(count)) return false;
+            bytes = count;
+            return true;
+        }
+        bool read(uint8_t *dst, size_t len) override { return fifo_read(dst, len); }
+        bool overflowed(bool &value) override { return fifo_overflowed(value); }
+        bool reset() override { return fifo_reset(); }
 
         // ---- FIFO ----------------------------------------------------------
         // The on-chip FIFO collects samples at the full output data rate while
@@ -97,7 +112,7 @@ class IMU
         bool write_reg(uint8_t reg, uint8_t val);
         bool read_regs(uint8_t reg, uint8_t *dst, size_t len);
         bool check();
-        void reset();
+        void reset_device();
         bool read_raw(Sample &out);     // read() without the bias subtraction
         bool read_reg(uint8_t reg, uint8_t &val);
 

@@ -6,7 +6,7 @@
 #include "button.hpp"
 #include "state_machine.hpp"
 #include "logger.hpp"
-#include "storage.hpp"
+#include "outputs.hpp"
 #include "sd_storage.hpp"
 #include "imu.hpp"
 #include "event.hpp"
@@ -26,7 +26,6 @@
 #define SD_SCK_PIN  14
 #define SD_MOSI_PIN 15
 
-void gpio_callback(uint gpio, uint32_t events);
 
 queue_t event_queue; // Everything reaches the state machine through here
 
@@ -35,7 +34,9 @@ queue_t event_queue; // Everything reaches the state machine through here
 // to it. None of the constructors touch hardware -- that happens in main().
 IMU imu(i2c_default, IMU_SDA_PIN, IMU_SCL_PIN);
 SdStorage storage(spi1, SD_MISO_PIN, SD_MOSI_PIN, SD_SCK_PIN, SD_CS_PIN);
-Logger logger(imu, storage, event_queue);
+PassThroughProcessor processor;
+Logger logger(imu, processor, storage, event_queue);
+Button button(GPIO_WATCH_PIN, event_queue);
 StateMachine state_machine(logger);
 
 // Make the bus pins available to picotool
@@ -43,21 +44,6 @@ bi_decl(bi_2pins_with_func(IMU_SDA_PIN, IMU_SCL_PIN, GPIO_FUNC_I2C));
 bi_decl(bi_3pins_with_func(SD_MISO_PIN, SD_MOSI_PIN, SD_SCK_PIN, GPIO_FUNC_SPI));
 bi_decl(bi_1pin_with_name(SD_CS_PIN, "SD card chip select"));
 
-int64_t timer_callback(alarm_id_t id, void *user_data) {
-    // Check the logging state and re-enable the intterupt
-    if (!gpio_get(GPIO_WATCH_PIN)) { // Meaning, is the button still being pressed? (reading zero voltage)
-        Event event = Event::BUTTON_PRESSED;
-        queue_try_add(&event_queue, &event); // Add the event to the queue
-    }
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback); // Re-enable the interrupt
-
-    return 0; // Return 0 to indicate that the alarm should not be repeated
-}
-
-void gpio_callback( uint gpio, uint32_t events) {
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, false, NULL); // First, disable the interrupt
-    add_alarm_in_ms(50, &timer_callback, NULL, true); // Start a timer. 
-}
 int pico_led_init() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
@@ -68,7 +54,7 @@ int main()
     stdio_init_all();
     sleep_ms(2000);   // let the USB CDC port enumerate before the first print
 
-    queue_init(&event_queue, sizeof(Event), 16); // Initialize the queue to hold up to 16 events
+    hard_assert(queue_init(&event_queue, sizeof(Event), 16)); // Initialize the queue to hold up to 16 events
 
     int rc = pico_led_init();
     hard_assert (rc == PICO_OK);
@@ -101,16 +87,12 @@ int main()
     }
 
 
-    // Hands Storage over to core 1 and starts the writer. Nothing on core 0
-    // may touch Storage after this point.
-    logger.begin();
+    // Hands Outputs over to core 1 and starts the writer. Nothing on core 0
+    // may use Outputs again until stop() acknowledges quiescence.
+    hard_assert(logger.begin());
 
-    // Button last: from here on, a press can arrive at any moment.
-    // All this will be encapsulated into a button class later, but for now, we will just do it here.
-    gpio_init(GPIO_WATCH_PIN);
-    gpio_set_dir(GPIO_WATCH_PIN, GPIO_IN);
-    gpio_pull_up(GPIO_WATCH_PIN); // The button will be active low, so we need to pull up the voltage. 
-    gpio_set_irq_enabled_with_callback(GPIO_WATCH_PIN, GPIO_IRQ_EDGE_FALL, true, gpio_callback);
+    // Button last, after the queue, dependencies and worker are ready.
+    hard_assert(button.begin());
 
     printf("Ready. Press the button to start logging.\n");
 

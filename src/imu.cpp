@@ -75,7 +75,7 @@ bool IMU::check()
     return true;
 }
 
-void IMU::reset()
+void IMU::reset_device()
 {
     // DEVICE_RESET: restores every register to its power-on default
     write_reg(REG_PWR_MGMT_1, 0x80);
@@ -111,7 +111,7 @@ bool IMU::init(uint baudrate)
         return false;
     }
 
-    reset();
+    reset_device();
     return true;
 }
 
@@ -225,6 +225,14 @@ bool IMU::fifo_reset()
     uint8_t status;
     read_reg(REG_INT_STATUS, status);
     return true;
+}
+
+bool IMU::stop()
+{
+    // RM-MPU-6000A-00 sections 4.7/4.28: FIFO_EN selects producers, whereas
+    // USER_CTRL.FIFO_EN gates BOTH reads and writes. Leave the latter enabled
+    // so the final drain can consume retained records; do not reset the FIFO.
+    return write_reg(REG_FIFO_EN, 0x00);
 }
 
 bool IMU::fifo_enable(bool on)

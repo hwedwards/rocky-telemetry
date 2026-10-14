@@ -41,7 +41,7 @@ add_executable(rocky-telemetry
         src/button.cpp
         src/imu.cpp
         src/logger.cpp
-        src/storage.cpp
+        src/outputs.cpp
         src/sd_card.cpp
         src/fat32.cpp
         src/sd_storage.cpp)

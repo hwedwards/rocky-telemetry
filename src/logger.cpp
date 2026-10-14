@@ -37,16 +37,22 @@ void Logger::writer_loop()
         queue_remove_blocking(&full_q, &b);
 
         if (b.data == nullptr) {        // sync sentinel, see stop()
-            if (!storage.sync()) {
+            bool synced = storage.sync();
+            if (!synced) {
                 write_errors++;
                 Event e = Event::WRITE_ERROR;
                 queue_try_add(&events, &e);
             }
-            syncs_done++;               // release stop(), which is waiting on this
+            Completion done{write_errors, process_errors, synced};
+            queue_add_blocking(&done_q, &done);
             continue;                   // the sentinel owns no buffer to return
         }
 
-        if (!storage.write(b.data, b.len)) {
+        if (!processor.process({b.data, b.len, format})) {
+            process_errors++;
+            Event e = Event::PROCESS_ERROR;
+            queue_try_add(&events, &e);
+        } else if (!storage.write(b.data, b.len)) {
             write_errors++;
             Event e = Event::WRITE_ERROR;
             queue_try_add(&events, &e);
@@ -65,38 +71,42 @@ bool Logger::begin()
 {
     if (writer_started) return true;
 
-    // full_q gets one extra slot so the sync sentinel in stop() always has
-    // somewhere to go, even when every buffer is already queued.
-    // queue_init calloc()s its backing store, so it can genuinely fail on a
-    // starved heap, and nothing downstream checks: a null data pointer would
-    // turn the first handoff into a memcpy to address 0.
-
-    // So the full queue can take 5 buffer tokens called blocks. It's so that the memory 
-    // doesn't physically have to be moved around 
-    if (!queue_init(&full_q, sizeof(Block), BUFFER_COUNT + 1) ||
-        !queue_init(&free_q, sizeof(Block), BUFFER_COUNT)) {
-        printf("Logger: could not allocate the handoff queues\n");
+    if (writer_self && writer_self != this) return false;
+    format = source.format();
+    if (!format.record_size || BUFFER_LEN % format.record_size != 0 ||
+        !processor.accepts(format)) {
+        printf("Logger: incompatible source format or processor\n");
         return false;
     }
-    // So we're assigning the first address of each allocated buffer to the block object. Each has length 0 initially. 
+    if (!queue_init(&full_q, sizeof(Block), BUFFER_COUNT + 1)) return false;
+    if (!queue_init(&free_q, sizeof(Block), BUFFER_COUNT)) {
+        queue_free(&full_q);
+        return false;
+    }
+    if (!queue_init(&done_q, sizeof(Completion), 1)) {
+        queue_free(&free_q);
+        queue_free(&full_q);
+        return false;
+    }
     for (size_t i = 0; i < BUFFER_COUNT; i++) {
         Block b{buffers[i], 0};
         queue_add_blocking(&free_q, &b);
     }
-    // writer self is for keeping track, accross the Logger class, who is core 0 . 
+    // Static trampoline binds the core 1 entry point to this instance.
     writer_self = this;
     // Launches core 1 and passes it a function pointer. 
     multicore_launch_core1(&writer_entry);
     writer_started = true;
 
-    printf("Logger: writer running on core 1, %u buffers of %u bytes (%u ms)\n",
+    printf("Logger: writer running on core 1, %u buffers of %u bytes (%u records)\n",
            (unsigned)BUFFER_COUNT, (unsigned)BUFFER_LEN,
-           (unsigned)(BUFFER_COUNT * BUFFER_SAMPLES));
+           (unsigned)(BUFFER_COUNT * BUFFER_LEN / format.record_size));
     return true;
 }
 
 bool Logger::start()
 {
+    if (stopping) return false;
     if (running) return true;
     if (!writer_started) {
         printf("Logger: begin() must run before start()\n");
@@ -107,15 +117,18 @@ bool Logger::start()
     samples_logged = 0;
     overflows = 0;
     buffers_dropped = 0;
-    write_errors = 0;
+    // Worker error counters are lifetime totals, never reset across cores.
 
     if (!take_buffer()) {
         printf("Logger: no free buffer to start into\n");
         return false;
     }
 
-    if (!imu.fifo_enable(true)) {
-        printf("Logger: could not start the sensor FIFO\n");
+    if (!source.start()) {
+        printf("Logger: could not start the source\n");
+        source.stop();
+        queue_add_blocking(&free_q, &current);
+        current.data = nullptr;
         return false;
     }
 
@@ -124,7 +137,9 @@ bool Logger::start()
     // the callback took.
     if (!add_repeating_timer_ms(-DRAIN_INTERVAL_MS, &drain_timer_cb, this, &timer)) {
         printf("Logger: no alarm slot available\n");
-        imu.fifo_enable(false);
+        source.stop();
+        queue_add_blocking(&free_q, &current);
+        current.data = nullptr;
         return false;
     }
 
@@ -132,48 +147,53 @@ bool Logger::start()
     return true;
 }
 
-void Logger::stop()
+bool Logger::stop()
 {
-    if (!running) return;
-
-    cancel_repeating_timer(&timer);
-    running = false;        // set before the last drain so flush() is the final word
-
-    drain();                // whatever landed since the last timer tick
-    flush();                // partial buffer
-
-    // flush() returns early on an empty buffer, so core 0 can still be holding
-    // one here. Give it back, or the wait below can never be satisfied.
-    if (current.data) {
-        queue_add_blocking(&free_q, &current);
-        current.data = nullptr;
-        fill = 0;
+    if (!running && !stopping) return true;
+    if (!stopping) {
+        cancel_repeating_timer(&timer);
+        running = false;
+        stopping = true;
+        // Freeze acquisition before the final drain. No new samples accumulate
+        // while the writer catches up. If starved, retain the previous policy:
+        // drain() leaves unread records in the source; no retry/drop policy change.
+        source_stopped = source.stop();
+        drain();
+        flush();
+        if (current.data) {
+            queue_add_blocking(&free_q, &current);
+            current.data = nullptr;
+            fill = 0;
+        }
+        Block sync_cmd{nullptr, 0};
+        queue_add_blocking(&full_q, &sync_cmd);
     }
-
-    // Read the counter before queueing, so a sync that finishes between the
-    // two lines still satisfies the wait rather than hanging it for a timeout.
-    const uint32_t sync_target = syncs_done + 1;
-
-    Block sync_cmd{nullptr, 0};
-    queue_add_blocking(&full_q, &sync_cmd);
-
-    // A buffer only reaches free_q after its write has completed, so all of
-    // them being home means the card has every byte we handed over. The
-    // sentinel is queued behind the last block and returns no buffer, so it
-    // needs waiting on separately -- otherwise report() below can read
-    // Storage while core 1 is still rewriting the FAT.
     absolute_time_t deadline = make_timeout_time_ms(STOP_TIMEOUT_MS);
-    while (queue_get_level(&free_q) < BUFFER_COUNT || syncs_done != sync_target) {
+    while (!queue_try_remove(&done_q, &completed)) {
         if (time_reached(deadline)) {
-            printf("Logger: writer still busy after %u ms - giving up on the "
-                   "final flush\n", (unsigned)STOP_TIMEOUT_MS);
-            break;
+            printf("Logger: shutdown pending; press again to await completion\n");
+            return false; // No Outputs reads, resets, or new session while busy.
         }
         tight_loop_contents();
     }
-
-    imu.fifo_enable(false);
+    // The queue acknowledgement synchronizes all worker accesses. All buffers
+    // were recycled before sync. The writer now blocks on an empty full_q.
+    stopping = false;
+    if (!source_stopped) printf("Logger: source stop failed\n");
+    if (!completed.synced) printf("Logger: final sync failed; data may be incomplete\n");
     report();
+    return true;
+}
+
+void Logger::handle_event(Event event)
+{
+    switch (event) {
+    case Event::DRAIN_FIFO: if (running) drain(); break;
+    case Event::FIFO_OVERFLOW: if (running) on_overflow(); break;
+    case Event::WRITE_ERROR: printf("Logger: storage operation failed\n"); break;
+    case Event::PROCESS_ERROR: printf("Logger: processor rejected a batch\n"); break;
+    default: break;
+    }
 }
 
 // Claim a buffer to fill. Non-blocking on purpose: if core 1 is behind and
@@ -196,28 +216,27 @@ bool Logger::take_buffer()
 
 void Logger::drain()
 {
-    // stop() calls this once after clearing the flag, so gate on the timer
-    // being gone rather than on running.
+    // Also called once by stop() after acquisition has been frozen.
     bool overflowed = false;
-    if (imu.fifo_overflowed(overflowed) && overflowed) {
+    if (source.overflowed(overflowed) && overflowed) {
         Event e = Event::FIFO_OVERFLOW;
         queue_try_add(&events, &e);
         return;             // the FIFO contents are already corrupt; let the
                             // state machine decide what to do about it
     }
 
-    uint16_t waiting = 0;
-    if (!imu.fifo_count(waiting)) return;
+    size_t waiting = 0;
+    if (!source.available(waiting)) return;
 
     // The count can be read part-way through the sensor writing a record, so
     // only ever take whole records and leave any remainder for next time.
     // Popping a partial record would shift every record after it.
-    waiting -= waiting % IMU::FIFO_SAMPLE_LEN;
+    waiting -= waiting % format.record_size;
 
     while (waiting > 0) {
         if (!take_buffer()) {
             // Every buffer is out with the writer. Leave the records in the
-            // FIFO: it holds 85 ms, and more importantly the stream stays
+            // source: its capacity sets the remaining headroom. The stream stays
             // record-aligned. If the writer never catches up the FIFO
             // overflows and on_overflow() resets it -- a clean break in the
             // log rather than a silently corrupted one.
@@ -227,11 +246,11 @@ void Logger::drain()
         size_t space = BUFFER_LEN - fill;
         size_t chunk = waiting < space ? waiting : space;
 
-        if (!imu.fifo_read(current.data + fill, chunk)) return;
+        if (!source.read(current.data + fill, chunk)) return;
 
         fill += chunk;
         waiting -= chunk;
-        samples_logged += chunk / IMU::FIFO_SAMPLE_LEN;
+        samples_logged += chunk / format.record_size;
 
         if (fill == BUFFER_LEN) flush();
     }
@@ -256,25 +275,20 @@ void Logger::on_overflow()
 
     // Everything still in the FIFO is of unknown age now, so throw it away
     // rather than write interleaved garbage into the log.
-    imu.fifo_reset();
+    source.reset();
 
     printf("Logger: FIFO overflow (#%lu) - the write path is not keeping up\n",
            (unsigned long)overflows);
 }
 
-void Logger::on_write_error()
-{
-    printf("Logger: storage write failed (#%lu)\n",
-           (unsigned long)write_errors);
-}
-
 void Logger::report() const
 {
-    printf("Logger: %lu samples, %lu overflows, %lu write errors, "
-           "%lu drains with no free buffer\n",
+    printf("Logger: %lu samples, %lu overflows, %lu write errors (lifetime), "
+           "%lu drains with no free buffer, %lu processor errors (lifetime)\n",
            (unsigned long)samples_logged,
            (unsigned long)overflows,
-           (unsigned long)write_errors,
-           (unsigned long)buffers_dropped);
+           (unsigned long)completed.write_errors,
+           (unsigned long)buffers_dropped,
+           (unsigned long)completed.process_errors);
     storage.report();
 }
