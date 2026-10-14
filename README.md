@@ -18,6 +18,16 @@ The default processor passes raw accelerometer and gyroscope records through
 unchanged. Host tests and the firmware build pass; sustained sampling, storage
 latency, and overflow behaviour still need validation on hardware.
 
+## Early sketches
+
+<a href="docs/images/early-context-diagram.jpg"><img src="docs/images/early-context-diagram.jpg" width="720" alt="Hand-drawn context diagram: button and IMU inputs, state machine, processing and buffer, with LED and SD card outputs"></a>
+
+*1. Context sketch: inputs, processing, buffering, and outputs.*
+
+<a href="docs/images/early-block-diagram.jpg"><img src="docs/images/early-block-diagram.jpg" width="720" alt="Hand-drawn early block diagram: main, button event queue, state machine, logger, IMU over I2C, SD card over SPI, and free/full queues"></a>
+
+*2. Block sketch: the logger, event queue, hardware buses, and free/full queues.*
+
 <details>
 <summary>Current architecture diagrams</summary>
 

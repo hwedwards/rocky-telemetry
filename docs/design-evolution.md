@@ -7,11 +7,13 @@ When I start a new project, I like to begin with a context diagram. The initial
 idea was simple: sample an MPU6050 at around 1,000 Hz and write the data to an SD
 card.
 
-![Interim hand-drawn diagram screenshot](images/early-design.jpeg)
+<a href="images/early-context-diagram.jpg"><img src="images/early-context-diagram.jpg" width="720" alt="Hand-drawn context diagram: button and IMU inputs, state machine, processing and buffer, with LED and SD card outputs"></a>
 
-*Interim screenshot, to be replaced when the original hand-drawn images are
-uploaded. It includes possible outputs such as PWM, not all of which are
-implemented.*
+*1. Context sketch: inputs, processing, buffering, and outputs.*
+
+<a href="images/early-block-diagram.jpg"><img src="images/early-block-diagram.jpg" width="720" alt="Hand-drawn early block diagram: main, button event queue, state machine, logger, IMU over I2C, SD card over SPI, and free/full queues"></a>
+
+*2. Block sketch: the logger, event queue, hardware buses, and free/full queues.*
 
 A basic version could come together fairly quickly. I wanted to use this project
 to practise designing software around real timing constraints, while making it
