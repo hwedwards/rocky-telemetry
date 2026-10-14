@@ -1,26 +1,27 @@
 #pragma once
 
 #include "event.hpp"
-#include "logger.hpp"
+#include "process.hpp"
 #include <cstdint>
 
 enum class State : uint8_t {
     OFF,
     LOGGING,
+    STOPPING,
 };
 
 class StateMachine
 {
     public:
-        // The Logger is owned by main() and outlives the state machine; this
+        // The Process is owned by main() and outlives the state machine; this
         // only borrows it. A reference member cannot be re-seated after
         // construction, which is exactly the guarantee we want.
-        explicit StateMachine(Logger &logger)
-            : logger(logger), current_state(State::OFF) {}
+        explicit StateMachine(Process &pipeline)
+            : pipeline(pipeline), current_state(State::OFF) {}
 
         // Runs in main context, never from an ISR. It is allowed to block --
-        // but everything it does has to finish well inside the FIFO's 85 ms of
-        // headroom, or the next drain arrives late and we lose samples.
+        // but while logging its work must finish within the source's
+        // buffering headroom. stop() may wait after freezing acquisition.
         void handle_event(Event event);
 
         State get_current_state() const { return current_state; }
@@ -29,6 +30,6 @@ class StateMachine
         void enter_logging();
         void enter_off();
 
-        Logger &logger;
+        Process &pipeline;
         State current_state;
 };

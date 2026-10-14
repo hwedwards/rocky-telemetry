@@ -338,7 +338,7 @@ bool SdCard::write_blocks(uint32_t lba, const uint8_t *src, size_t count)
         if (ok) ok = tx_datablock(nullptr, TOK_STOP_TRAN);
     }
 
-    // Do not return until the card has finished programming. Storage promises
+    // Do not return until the card has finished programming. Outputs promises
     // the caller may reuse the buffer on return, and core 1 is about to hand
     // that buffer straight back to core 0.
     //

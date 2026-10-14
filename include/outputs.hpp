@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-class IMU;      // only for NullStorage's debug dump. Storage proper has no
+class IMU;      // only for NullStorage's debug dump. Outputs proper has no
                 // opinion about what is in the bytes it is handed.
 
 // Where log data ends up. Logger only ever sees this interface, so the SD
@@ -16,12 +16,12 @@ class IMU;      // only for NullStorage's debug dump. Storage proper has no
 //
 // THREADING: mount() and open() run on core 0 at boot. From the moment
 // Logger::begin() launches the writer, every other call comes from core 1 and
-// core 0 must not touch this object again. That ordering is what lets the
-// implementation stay single-threaded -- FatFs is not reentrant.
-class Storage
+// core 0 may call report() only after the queued stop acknowledgement. That
+// ordering keeps the backend single-threaded, including on stop timeouts.
+class Outputs
 {
     public:
-        virtual ~Storage() = default;
+        virtual ~Outputs() = default;
 
         virtual bool mount() = 0;
         virtual bool open(const char *path) = 0;
@@ -36,7 +36,7 @@ class Storage
 
 // Counts bytes and throws them away. Lets the whole acquisition path be
 // exercised before any SD hardware is wired up.
-class NullStorage : public Storage
+class NullStorage : public Outputs
 {
     public:
         // ---- fault injection ------------------------------------------------

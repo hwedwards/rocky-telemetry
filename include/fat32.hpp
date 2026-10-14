@@ -8,7 +8,7 @@
 //
 // This is deliberately not a filesystem. There are no directories, no long
 // names, no reading, no deleting, and exactly one file open at a time --
-// because that is the entire shape of what Storage asks for. A general
+// because that is the entire shape of what Outputs asks for. A general
 // implementation is several thousand lines and brings a configuration surface
 // with it; this is a few hundred and does nothing that is not on the path
 // between Logger and the card.
@@ -25,7 +25,7 @@
 // against 6 KB writes), which is a couple of milliseconds against a pool that
 // absorbs two seconds. The card is consistent at every instant instead.
 //
-// THREADING: none. Everything after mount() runs on core 1. See storage.hpp.
+// THREADING: none. Everything after mount() runs on core 1. See outputs.hpp.
 class Fat32
 {
     public:

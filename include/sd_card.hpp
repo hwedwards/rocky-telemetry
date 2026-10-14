@@ -16,7 +16,7 @@
 //
 // THREADING: none, deliberately. init() runs on core 0 at boot, before
 // Logger::begin() exists to hand anything over; every call after that arrives
-// from core 1 through Storage. Nothing here is reentrant.
+// from core 1 through Outputs. Nothing here is reentrant.
 class SdCard
 {
     public:
@@ -70,7 +70,7 @@ class SdCard
         // above it can work.
         bool self_test(uint32_t lba);
 
-        // Counters for Storage::report().
+        // Counters for Outputs::report().
         uint32_t protocol_errors() const { return proto_errs; }
         uint32_t timeouts() const        { return timeout_errs; }
 

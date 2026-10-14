@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1810" viewBox="0 0 2200 1810"><defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#52708a" stroke-width="2"/></marker><marker id="triangle" markerWidth="24" markerHeight="24" refX="21" refY="12" orient="auto" markerUnits="userSpaceOnUse"><path d="M2 2 L21 12 L2 22 Z" fill="white" stroke="#52708a" stroke-width="2"/></marker></defs><rect width="2200" height="1810" fill="#f7f9fc"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#1c3044}.title{font-size:40px;font-weight:700}.sub{font-size:22px;fill:#586e82}.name{font-size:26px;font-weight:700}.stereo{font-size:19px;fill:#53718a}.body{font-size:21px}.small{font-size:19px;fill:#53718a}.label{font-size:20px;fill:#46627b;paint-order:stroke;stroke:#f7f9fc;stroke-width:9px;stroke-linejoin:round}.edge{fill:none;stroke:#52708a;stroke-width:2.6}.section{font-size:18px;font-weight:700;letter-spacing:2px;fill:#61778b}</style>
+<text x="60" y="65" class="title" text-anchor="start">Rocky telemetry · Logger implements Process</text>
+<text x="60" y="105" class="sub" text-anchor="start">Class relationships • selected operations • matches the local refactor branch</text>
+<text x="60" y="151" class="section" text-anchor="start">01  OWNERSHIP &amp; DATA CONTRACT</text>
+<rect x="60" y="175" width="900" height="200" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M70 175 H950 Q960 175 960 185 V250 H60 V185 Q60 175 70 175" fill="#e8eff8"/>
+<text x="510.0" y="201" class="stereo" text-anchor="middle">«composition root, not a class»</text>
+<text x="510.0" y="232" class="name" text-anchor="middle">main()</text>
+<path d="M60 250 H960" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="81" y="282" class="body" text-anchor="start">Owns IMU, SdStorage, PassThroughProcessor, Logger,</text>
+<text x="81" y="313" class="body" text-anchor="start">Button, StateMachine, and event_queue</text>
+<text x="81" y="344" class="body" text-anchor="start">Injects references; dependencies outlive their consumers</text>
+<rect x="1050" y="175" width="510" height="200" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1060 175 H1550 Q1560 175 1560 185 V250 H1050 V185 Q1050 175 1060 175" fill="#e7f3ef"/>
+<text x="1305.0" y="201" class="stereo" text-anchor="middle">«value type»</text>
+<text x="1305.0" y="232" class="name" text-anchor="middle">SampleFormat</text>
+<path d="M1050 250 H1560" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1071" y="282" class="body" text-anchor="start">kind</text>
+<text x="1071" y="313" class="body" text-anchor="start">record_size</text>
+<text x="1071" y="344" class="body" text-anchor="start">Default: original raw 12-byte records</text>
+<rect x="1630" y="175" width="510" height="200" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1640 175 H2130 Q2140 175 2140 185 V250 H1630 V185 Q1630 175 1640 175" fill="#e7f3ef"/>
+<text x="1885.0" y="201" class="stereo" text-anchor="middle">«borrowed view»</text>
+<text x="1885.0" y="232" class="name" text-anchor="middle">SampleBatch</text>
+<path d="M1630 250 H2140" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1651" y="282" class="body" text-anchor="start">data + size + format</text>
+<text x="1651" y="313" class="body" text-anchor="start">Mutable bytes; synchronous processing</text>
+<text x="1651" y="344" class="body" text-anchor="start">No serialized timestamp or schema</text>
+<text x="60" y="430" class="section" text-anchor="start">02  EVENTS &amp; CONTROL</text>
+<rect x="60" y="465" width="250" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M70 465 H300 Q310 465 310 475 V521 H60 V475 Q60 465 70 465" fill="#e8eff8"/>
+<text x="185.0" y="502" class="name" text-anchor="middle">Button</text>
+<path d="M60 521 H310" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="81" y="553" class="body" text-anchor="start">begin() : bool</text>
+<rect x="380" y="465" width="300" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M390 465 H670 Q680 465 680 475 V540 H380 V475 Q380 465 390 465" fill="#e8eff8"/>
+<text x="530.0" y="491" class="stereo" text-anchor="middle">«interface»</text>
+<text x="530.0" y="522" class="name" text-anchor="middle">EventSource</text>
+<path d="M380 540 H680" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="401" y="572" class="body" text-anchor="start">begin() : bool</text>
+<rect x="800" y="465" width="310" height="171" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M810 465 H1100 Q1110 465 1110 475 V540 H800 V475 Q800 465 810 465" fill="#e8eff8"/>
+<text x="955.0" y="491" class="stereo" text-anchor="middle">«queue»</text>
+<text x="955.0" y="522" class="name" text-anchor="middle">event_queue</text>
+<path d="M800 540 H1110" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="821" y="572" class="body" text-anchor="start">Button: IRQ + debounce</text>
+<text x="821" y="603" class="body" text-anchor="start">Timer: DRAIN_FIFO</text>
+<rect x="1220" y="465" width="350" height="200" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1230 465 H1560 Q1570 465 1570 475 V521 H1220 V475 Q1220 465 1230 465" fill="#e8eff8"/>
+<text x="1395.0" y="502" class="name" text-anchor="middle">StateMachine</text>
+<path d="M1220 521 H1570" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1241" y="553" class="body" text-anchor="start">Borrows Process</text>
+<text x="1241" y="584" class="body" text-anchor="start">OFF / LOGGING</text>
+<text x="1241" y="615" class="body" text-anchor="start">STOPPING</text>
+<rect x="1690" y="465" width="450" height="250" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1700 465 H2130 Q2140 465 2140 475 V540 H1690 V475 Q1690 465 1700 465" fill="#e8eff8"/>
+<text x="1915.0" y="491" class="stereo" text-anchor="middle">«interface»</text>
+<text x="1915.0" y="522" class="name" text-anchor="middle">Process</text>
+<path d="M1690 540 H2140" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1711" y="572" class="body" text-anchor="start">begin() / start() / stop() : bool</text>
+<text x="1711" y="603" class="body" text-anchor="start">is_running() const : bool</text>
+<text x="1711" y="634" class="body" text-anchor="start">handle_event(Event) : void</text>
+<path d="M310 526 H380" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<path d="M680 553 H800" class="edge" marker-end="url(#arrow)"/>
+<text x="740" y="535" class="label" text-anchor="middle">enqueues</text>
+<path d="M1220 553 H1110" class="edge" marker-end="url(#arrow)"/>
+<text x="1165" y="535" class="label" text-anchor="middle">reads</text>
+<path d="M1570 553 H1690" class="edge" marker-end="url(#arrow)"/>
+<text x="1630" y="535" class="label" text-anchor="middle">uses</text>
+<text x="60" y="683" class="small" text-anchor="start">All abstract interfaces have virtual destructors.</text>
+<text x="60" y="762" class="section" text-anchor="start">03  CONCRETE PROCESS</text>
+<rect x="710" y="795" width="850" height="251" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M720 795 H1550 Q1560 795 1560 805 V851 H710 V805 Q710 795 720 795" fill="#e8eff8"/>
+<text x="1135.0" y="832" class="name" text-anchor="middle">Logger</text>
+<path d="M710 851 H1560" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="731" y="883" class="body" text-anchor="start">Logger(inputs, sample_processor, outputs, event_queue)</text>
+<text x="731" y="914" class="body" text-anchor="start">Borrows Inputs on core 0</text>
+<text x="731" y="945" class="body" text-anchor="start">Borrows SampleProcessor and Outputs on core 1</text>
+<text x="731" y="976" class="body" text-anchor="start">Owns 4 × 6144-byte buffers + full_q / free_q / done_q</text>
+<path d="M510 375 V404 H25 V914 H710" class="edge" stroke-dasharray="10 7" marker-end="url(#arrow)"/>
+<text x="290" y="896" class="label" text-anchor="start">creates + injects</text>
+<path d="M1560 863 H1915 V715" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<text x="1730" y="845" class="label" text-anchor="middle">implements</text>
+<text x="60" y="1110" class="section" text-anchor="start">04  INJECTED CAPABILITIES</text>
+<rect x="60" y="1160" width="600" height="279" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M70 1160 H650 Q660 1160 660 1170 V1235 H60 V1170 Q60 1160 70 1160" fill="#e7f3ef"/>
+<text x="360.0" y="1186" class="stereo" text-anchor="middle">«interface»</text>
+<text x="360.0" y="1217" class="name" text-anchor="middle">Inputs</text>
+<path d="M60 1235 H660" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="81" y="1267" class="body" text-anchor="start">format() : SampleFormat</text>
+<text x="81" y="1298" class="body" text-anchor="start">start() / stop() : bool</text>
+<text x="81" y="1329" class="body" text-anchor="start">available(size_t&amp; bytes) : bool</text>
+<text x="81" y="1360" class="body" text-anchor="start">read(uint8_t* dst, size_t len) : bool</text>
+<text x="81" y="1391" class="body" text-anchor="start">overflowed(bool&amp;) / reset() : bool</text>
+<rect x="830" y="1160" width="560" height="279" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M840 1160 H1380 Q1390 1160 1390 1170 V1235 H830 V1170 Q830 1160 840 1160" fill="#e7f3ef"/>
+<text x="1110.0" y="1186" class="stereo" text-anchor="middle">«interface»</text>
+<text x="1110.0" y="1217" class="name" text-anchor="middle">SampleProcessor</text>
+<path d="M830 1235 H1390" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="851" y="1267" class="body" text-anchor="start">accepts(SampleFormat) const : bool</text>
+<text x="851" y="1298" class="body" text-anchor="start">process(SampleBatch) : bool</text>
+<text x="851" y="1329" class="body" text-anchor="start">In place; preserve size and layout</text>
+<text x="851" y="1360" class="body" text-anchor="start">Synchronous; retain no data pointer</text>
+<rect x="1560" y="1160" width="580" height="279" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1570 1160 H2130 Q2140 1160 2140 1170 V1235 H1560 V1170 Q1560 1160 1570 1160" fill="#e7f3ef"/>
+<text x="1850.0" y="1186" class="stereo" text-anchor="middle">«interface»</text>
+<text x="1850.0" y="1217" class="name" text-anchor="middle">Outputs</text>
+<path d="M1560 1235 H2140" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1581" y="1267" class="body" text-anchor="start">mount() / open() / write() : bool</text>
+<text x="1581" y="1298" class="body" text-anchor="start">sync() : bool</text>
+<text x="1581" y="1329" class="body" text-anchor="start">close() : void</text>
+<text x="1581" y="1360" class="body" text-anchor="start">report() const : void</text>
+<path d="M810 1046 V1133 H360 V1160" class="edge" marker-end="url(#arrow)"/>
+<text x="570" y="1122" class="label" text-anchor="middle">borrows</text>
+<path d="M1110 1046 V1160" class="edge" marker-end="url(#arrow)"/>
+<text x="1130" y="1122" class="label" text-anchor="start">borrows</text>
+<path d="M1470 1046 V1133 H1850 V1160" class="edge" marker-end="url(#arrow)"/>
+<text x="1670" y="1122" class="label" text-anchor="middle">borrows</text>
+<rect x="200" y="1510" width="320" height="94" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M210 1510 H510 Q520 1510 520 1520 V1566 H200 V1520 Q200 1510 210 1510" fill="#e8eff8"/>
+<text x="360.0" y="1547" class="name" text-anchor="middle">IMU</text>
+<path d="M200 1566 H520" stroke="#9aafc2" stroke-width="1.5"/>
+<rect x="900" y="1510" width="420" height="94" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M910 1510 H1310 Q1320 1510 1320 1520 V1566 H900 V1520 Q900 1510 910 1510" fill="#e8eff8"/>
+<text x="1110.0" y="1547" class="name" text-anchor="middle">PassThroughProcessor</text>
+<path d="M900 1566 H1320" stroke="#9aafc2" stroke-width="1.5"/>
+<rect x="1560" y="1510" width="270" height="94" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1570 1510 H1820 Q1830 1510 1830 1520 V1566 H1560 V1520 Q1560 1510 1570 1510" fill="#e8eff8"/>
+<text x="1695.0" y="1547" class="name" text-anchor="middle">SdStorage</text>
+<path d="M1560 1566 H1830" stroke="#9aafc2" stroke-width="1.5"/>
+<rect x="1870" y="1510" width="270" height="94" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1880 1510 H2130 Q2140 1510 2140 1520 V1566 H1870 V1520 Q1870 1510 1880 1510" fill="#e8eff8"/>
+<text x="2005.0" y="1547" class="name" text-anchor="middle">NullStorage</text>
+<path d="M1870 1566 H2140" stroke="#9aafc2" stroke-width="1.5"/>
+<path d="M360 1510 V1439" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<path d="M1110 1510 V1439" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<path d="M1695 1510 V1439" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<path d="M2005 1510 V1439" class="edge" stroke-dasharray="10 7" marker-end="url(#triangle)"/>
+<rect x="60" y="1650" width="2080" height="104" rx="10" fill="#edf2f8"/>
+<text x="82" y="1685" class="small" text-anchor="start">Solid arrow: association/use • Dashed arrow: creation dependency • Dashed hollow triangle: interface realization</text>
+<text x="82" y="1720" class="small" text-anchor="start">Method lists are selective; parameter lists are shortened for Outputs. Runtime ownership and shutdown appear on the execution page.</text>
+<text x="2140" y="1784" class="small" text-anchor="end">Interface naming update • Hardware behavior remains untested</text>
+</svg>

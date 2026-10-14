@@ -1,6 +1,6 @@
 #pragma once
 
-#include "storage.hpp"
+#include "outputs.hpp"
 #include "sd_card.hpp"
 #include "fat32.hpp"
 #include "hardware/spi.h"
@@ -8,15 +8,16 @@
 // The real backend: SD card over SPI, FAT32, one file.
 //
 // This class is almost entirely glue. All it adds over SdCard and Fat32 is the
-// Storage contract and the counters behind report() -- and of those, the one
+// Outputs contract and the counters behind report() -- and of those, the one
 // worth reading is worst_write_us(). A logger that never drops a buffer is
 // only telling you the pool was deep enough; the worst single write tells you
 // how much of that depth you were actually using, and therefore whether the
 // margin is real or luck.
 //
 // THREADING: mount() and open() run on core 0 at boot, before
-// Logger::begin(). Every call after that comes from core 1. See storage.hpp.
-class SdStorage : public Storage
+// Logger::begin(). Data operations then run on core 1; report() runs on core 0
+// only after the stop acknowledgement. See outputs.hpp.
+class SdStorage : public Outputs
 {
     public:
         // Touches no hardware -- safe to construct as a global before main().

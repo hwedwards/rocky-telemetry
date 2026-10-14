@@ -10,5 +10,6 @@ enum class Event : uint8_t {
     BUTTON_PRESSED,  // debounced press, from the GPIO alarm callback
     DRAIN_FIFO,      // repeating timer: samples are waiting on the MPU6050
     FIFO_OVERFLOW,   // the sensor FIFO wrapped -- we fell behind and lost data
+    PROCESS_ERROR,   // processor rejected a batch, posted by core 1
     WRITE_ERROR,     // storage write failed, posted by the writer on core 1
 };
