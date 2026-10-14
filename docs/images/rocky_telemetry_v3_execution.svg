@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1560" viewBox="0 0 2200 1560"><defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L10 6 L1 11" fill="none" stroke="#52708a" stroke-width="2"/></marker><marker id="triangle" markerWidth="24" markerHeight="24" refX="21" refY="12" orient="auto" markerUnits="userSpaceOnUse"><path d="M2 2 L21 12 L2 22 Z" fill="white" stroke="#52708a" stroke-width="2"/></marker></defs><rect width="2200" height="1560" fill="#f7f9fc"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#1c3044}.title{font-size:40px;font-weight:700}.sub{font-size:22px;fill:#586e82}.name{font-size:26px;font-weight:700}.stereo{font-size:19px;fill:#53718a}.body{font-size:21px}.small{font-size:19px;fill:#53718a}.label{font-size:20px;fill:#46627b;paint-order:stroke;stroke:#f7f9fc;stroke-width:9px;stroke-linejoin:round}.edge{fill:none;stroke:#52708a;stroke-width:2.6}.section{font-size:18px;font-weight:700;letter-spacing:2px;fill:#61778b}</style>
+<text x="60" y="65" class="title" text-anchor="start">Rocky telemetry · dual-core execution</text>
+<text x="60" y="105" class="sub" text-anchor="start">Logger’s internal runtime • arrows show work and ownership transfer, not UML inheritance</text>
+<rect x="60" y="155" width="1010" height="1020" rx="18" fill="#edf3fb" stroke="#cbd8e6"/><rect x="1130" y="155" width="1010" height="1020" rx="18" fill="#edf6f1" stroke="#cadfd3"/>
+<text x="95" y="204" class="section" text-anchor="start">CORE 0 · CONTROL + ACQUISITION</text>
+<text x="1165" y="204" class="section" text-anchor="start">CORE 1 · PROCESS + WRITE</text>
+<rect x="100" y="250" width="360" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M110 250 H450 Q460 250 460 260 V306 H100 V260 Q100 250 110 250" fill="#e8eff8"/>
+<text x="280.0" y="287" class="name" text-anchor="middle">Timer</text>
+<path d="M100 306 H460" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="121" y="338" class="body" text-anchor="start">Queues DRAIN_FIFO</text>
+<rect x="620" y="250" width="400" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M630 250 H1010 Q1020 250 1020 260 V306 H620 V260 Q620 250 630 250" fill="#e8eff8"/>
+<text x="820.0" y="287" class="name" text-anchor="middle">Button</text>
+<path d="M620 306 H1020" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="641" y="338" class="body" text-anchor="start">IRQ + debounce → Event</text>
+<rect x="330" y="453" width="470" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M340 453 H790 Q800 453 800 463 V509 H330 V463 Q330 453 340 453" fill="#e8eff8"/>
+<text x="565.0" y="490" class="name" text-anchor="middle">event_queue</text>
+<path d="M330 509 H800" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="351" y="541" class="body" text-anchor="start">StateMachine dispatches to Process</text>
+<path d="M280 393 V421 H450 V453" class="edge" marker-end="url(#arrow)"/>
+<path d="M820 393 V421 H680 V453" class="edge" marker-end="url(#arrow)"/>
+<rect x="250" y="675" width="630" height="171" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M260 675 H870 Q880 675 880 685 V731 H250 V685 Q250 675 260 675" fill="#e8eff8"/>
+<text x="565.0" y="712" class="name" text-anchor="middle">Logger acquisition</text>
+<path d="M250 731 H880" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="271" y="763" class="body" text-anchor="start">Inputs → IMU FIFO</text>
+<text x="271" y="794" class="body" text-anchor="start">Acquire a free block; read bytes into it</text>
+<path d="M565 596 V675" class="edge" marker-end="url(#arrow)"/>
+<text x="545" y="646" class="label" text-anchor="end">handle_event(DRAIN_FIFO)</text>
+<rect x="910" y="885" width="380" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M920 885 H1280 Q1290 885 1290 895 V960 H910 V895 Q910 885 920 885" fill="#e8eff8"/>
+<text x="1100.0" y="911" class="stereo" text-anchor="middle">«ownership transfer»</text>
+<text x="1100.0" y="942" class="name" text-anchor="middle">full_q</text>
+<path d="M910 960 H1290" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="931" y="992" class="body" text-anchor="start">Block {pointer, length}</text>
+<rect x="1310" y="675" width="630" height="171" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1320 675 H1930 Q1940 675 1940 685 V731 H1310 V685 Q1310 675 1320 675" fill="#e8eff8"/>
+<text x="1625.0" y="712" class="name" text-anchor="middle">Logger worker</text>
+<path d="M1310 731 H1940" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1331" y="763" class="body" text-anchor="start">SampleProcessor.process(SampleBatch)</text>
+<text x="1331" y="794" class="body" text-anchor="start">Outputs.write(processed bytes)</text>
+<path d="M565 846 V956 H910" class="edge" marker-end="url(#arrow)"/>
+<path d="M1290 956 H1625 V846" class="edge" marker-end="url(#arrow)"/>
+<text x="630" y="930" class="label" text-anchor="start">publish filled block</text>
+<text x="1410" y="930" class="label" text-anchor="start">take filled block</text>
+<rect x="910" y="480" width="380" height="143" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M920 480 H1280 Q1290 480 1290 490 V555 H910 V490 Q910 480 920 480" fill="#e8eff8"/>
+<text x="1100.0" y="506" class="stereo" text-anchor="middle">«ownership transfer»</text>
+<text x="1100.0" y="537" class="name" text-anchor="middle">free_q</text>
+<path d="M910 555 H1290" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="931" y="587" class="body" text-anchor="start">Reusable block pointers</text>
+<path d="M1625 675 V550 H1290" class="edge" marker-end="url(#arrow)"/>
+<text x="1435" y="527" class="label" text-anchor="middle">return block after use</text>
+<path d="M910 550 H860 V650 H720 V675" class="edge" marker-end="url(#arrow)"/>
+<text x="845" y="638" class="label" text-anchor="end">take free block</text>
+<text x="1450" y="310" class="name" text-anchor="start">One owner at a time</text>
+<text x="1370" y="357" class="body" text-anchor="start">free_q → core 0 → full_q → core 1 → free_q</text>
+<text x="1370" y="402" class="body" text-anchor="start">A published block is not reused until returned.</text>
+<text x="1370" y="444" class="body" text-anchor="start">SampleProcessor and Outputs retain no buffer pointer.</text>
+<rect x="1270" y="1046" width="710" height="110" rx="10" fill="white" stroke="#9aafc2" stroke-width="2"/>
+<path d="M1280 1046 H1970 Q1980 1046 1980 1056 V1102 H1270 V1056 Q1270 1046 1280 1046" fill="#e8eff8"/>
+<text x="1625.0" y="1083" class="name" text-anchor="middle">done_q</text>
+<path d="M1270 1102 H1980" stroke="#9aafc2" stroke-width="1.5"/>
+<text x="1291" y="1134" class="body" text-anchor="start">Completion + error snapshot: core 1 → core 0</text>
+<path d="M1940 770 H2070 V1093 H1980" class="edge" marker-end="url(#arrow)"/>
+<path d="M1270 1093 H350 V846" class="edge" marker-end="url(#arrow)"/>
+<text x="590" y="1074" class="label" text-anchor="start">shutdown acknowledgement</text>
+<text x="95" y="1147" class="small" text-anchor="start">Logger owns a fixed pool: 4 × 6144 bytes. Queue transfers carry handles, not payload copies.</text>
+<rect x="60" y="1215" width="2080" height="265" rx="14" fill="white" stroke="#cbd8e6"/>
+<text x="90" y="1260" class="section" text-anchor="start">STOPPING IS A REAL STATE</text>
+<text x="90" y="1305" class="body" text-anchor="start">1. Freeze acquisition before the final drain.</text>
+<text x="90" y="1344" class="body" text-anchor="start">2. Core 1 finishes pending work and sends completion + errors through done_q.</text>
+<text x="90" y="1383" class="body" text-anchor="start">3. A timeout keeps StateMachine in STOPPING; restart stays blocked until completion.</text>
+<text x="90" y="1435" class="body" text-anchor="start">stop() returning true means the worker is quiescent. It does not guarantee durable storage; failures are reported separately.</text>
+<text x="2140" y="1523" class="small" text-anchor="end">Matches the local refactor naming • Hardware untested</text>
+</svg>
